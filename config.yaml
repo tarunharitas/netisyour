@@ -1,0 +1,56 @@
+# Sentinel NIDS configuration
+# Tune detector thresholds here without touching Python source code.
+
+capture:
+  interface: "WiFi"          # Overridden by --interface on the CLI
+  bpf_filter: null           # e.g. "ip" to restrict capture, or leave null
+  queue_size: 10000          # Max packets waiting for worker processing
+  workers: 2                 # Number of analysis worker threads
+  stats_interval_seconds: 10 # Length of each traffic-statistics window
+
+database:
+  path: "nids.db"
+  retention_days: 30
+
+arp:
+  enabled: true
+  trusted_mappings: {}       # e.g. { "192.168.1.1": "AA:BB:CC:DD:EE:FF" }
+  cooldown_seconds: 30
+
+syn_flood:
+  enabled: true
+  window_seconds: 10
+  syn_threshold: 100
+  completion_ratio_threshold: 0.2
+  cooldown_seconds: 30
+
+port_scan:
+  enabled: true
+  window_seconds: 10
+  vertical_unique_ports: 15     # unique ports on one host -> vertical scan
+  horizontal_unique_hosts: 15   # unique hosts on one port -> horizontal scan
+  cooldown_seconds: 30
+
+dns:
+  enabled: true
+  window_seconds: 30
+  long_label_length: 30
+  entropy_threshold: 3.5
+  rate_threshold: 30
+  uniqueness_ratio_threshold: 0.8
+  unusual_qtypes: ["TXT", "NULL"]
+  score_threshold: 6
+  allowlist: []               # e.g. ["mycompany.com", "cdn.example.com"]
+  cooldown_seconds: 60
+
+anomaly:
+  enabled: true
+  window_seconds: 10
+  learning_windows: 6
+  z_score_threshold: 3.0
+  persistence_windows: 2
+  cooldown_seconds: 60
+
+dashboard:
+  host: "127.0.0.1"
+  port: 5000

@@ -1,0 +1,30 @@
+# Environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Sentinel NIDS runtime data - never publish these
+nids.db
+*.pcap
+*.pcapng
+alerts.json
+alerts.csv
+
+# Secrets
+*.env
+.env
+*.key
+*.pem
+credentials*
+tokens*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

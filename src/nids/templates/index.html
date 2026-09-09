@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sentinel NIDS Dashboard</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    margin: 0; padding: 0;
+    background: #0f1420; color: #e6e9ef;
+  }
+  header {
+    padding: 20px 28px; border-bottom: 1px solid #1f2635;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; }
+  header .badge {
+    font-size: 12px; color: #8fe3a3; background: #123322; padding: 4px 10px;
+    border-radius: 999px; border: 1px solid #1f5c37;
+  }
+  .container { padding: 24px 28px; max-width: 1100px; margin: 0 auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card {
+    background: #151b28; border: 1px solid #232b3d; border-radius: 10px;
+    padding: 16px;
+  }
+  .card .label { font-size: 12px; color: #97a2b8; text-transform: uppercase; letter-spacing: 0.06em; }
+  .card .value { font-size: 26px; font-weight: 600; margin-top: 6px; }
+  .filters { display: flex; gap: 10px; margin-bottom: 16px; }
+  select {
+    background: #151b28; color: #e6e9ef; border: 1px solid #232b3d;
+    padding: 8px 10px; border-radius: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1f2635; }
+  th { color: #97a2b8; font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+  tr:hover { background: #131a29; }
+  .sev { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .sev-high { background: #3a1620; color: #ff8fa3; border: 1px solid #632233; }
+  .sev-medium { background: #3a2c12; color: #ffcf7a; border: 1px solid #634822; }
+  .sev-low { background: #12303a; color: #7ad4ff; border: 1px solid #224b63; }
+  .status { color: #97a2b8; }
+  .empty { padding: 40px; text-align: center; color: #6a748c; }
+  footer { padding: 20px 28px; color: #55607a; font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>&#128737;&#65039; Sentinel NIDS</h1>
+  <span class="badge">local &middot; 127.0.0.1</span>
+</header>
+<div class="container">
+  <div class="cards">
+    <div class="card"><div class="label">Total Alerts</div><div class="value">{{ summary.total_alerts }}</div></div>
+    <div class="card"><div class="label">New Alerts</div><div class="value">{{ summary.new_alerts }}</div></div>
+    <div class="card"><div class="label">High Severity</div><div class="value">{{ summary.by_severity.get('high', 0) }}</div></div>
+    <div class="card"><div class="label">Medium Severity</div><div class="value">{{ summary.by_severity.get('medium', 0) }}</div></div>
+    <div class="card"><div class="label">Low Severity</div><div class="value">{{ summary.by_severity.get('low', 0) }}</div></div>
+  </div>
+
+  <form class="filters" method="get">
+    <select name="severity" onchange="this.form.submit()">
+      <option value="">All severities</option>
+      <option value="high" {{ 'selected' if severity_filter == 'high' }}>High</option>
+      <option value="medium" {{ 'selected' if severity_filter == 'medium' }}>Medium</option>
+      <option value="low" {{ 'selected' if severity_filter == 'low' }}>Low</option>
+    </select>
+    <select name="status" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      <option value="new" {{ 'selected' if status_filter == 'new' }}>New</option>
+      <option value="investigating" {{ 'selected' if status_filter == 'investigating' }}>Investigating</option>
+      <option value="resolved" {{ 'selected' if status_filter == 'resolved' }}>Resolved</option>
+      <option value="false_positive" {{ 'selected' if status_filter == 'false_positive' }}>False positive</option>
+      <option value="ignored" {{ 'selected' if status_filter == 'ignored' }}>Ignored</option>
+    </select>
+  </form>
+
+  {% if alerts %}
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Type</th><th>Severity</th><th>Confidence</th><th>Source</th><th>Destination</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for a in alerts %}
+      <tr>
+        <td>{{ a.timestamp | round(0) }}</td>
+        <td>{{ a.alert_type }}</td>
+        <td><span class="sev sev-{{ a.severity }}">{{ a.severity }}</span></td>
+        <td>{{ (a.confidence * 100) | round(0) | int }}%</td>
+        <td>{{ a.src_ip or '-' }}{% if a.src_port %}:{{ a.src_port }}{% endif %}</td>
+        <td>{{ a.dst_ip or '-' }}{% if a.dst_port %}:{{ a.dst_port }}{% endif %}</td>
+        <td class="status">{{ a.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No alerts match this filter. Zero alerts is a healthy result when traffic looks normal.</div>
+  {% endif %}
+</div>
+<footer>Sentinel NIDS &middot; passive, observe-only &middot; authorized environments only</footer>
+</body>
+</html>

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-nids"
+version = "1.0.0"
+description = "A lightweight, passive network intrusion & anomaly detection system"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Tarun Sharma" }]
+keywords = ["nids", "network-security", "intrusion-detection", "scapy", "cybersecurity"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Security",
+    "Intended Audience :: Education",
+]
+dependencies = [
+    "scapy>=2.5.0",
+    "Flask>=2.3.0",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+sentinel-nids = "nids.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nids = ["templates/*.html", "static/*"]
