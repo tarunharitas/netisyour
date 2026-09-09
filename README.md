@@ -3,6 +3,7 @@
 A lightweight, **passive** Network Intrusion & Anomaly Detection System built with Python, Scapy, SQLite, and Flask.
 
 > **Defensive and educational use only.** Monitor only devices and networks that you own or are explicitly authorized to inspect. Sentinel NIDS never blocks traffic, disconnects Wi-Fi, changes router settings, or generates attacks — it only observes and analyzes.
+> Alert exports may contain IP addresses, MAC addresses, and DNS metadata. Do not publicly share exports captured from networks without authorization
 
 ## What it does
 
