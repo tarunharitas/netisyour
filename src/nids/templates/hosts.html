@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hosts - Sentinel NIDS Dashboard</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 0; background: #0f1420; color: #e6e9ef; }
+  header { padding: 20px 28px; border-bottom: 1px solid #1f2635; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; display: inline-block;}
+  nav { display: inline-flex; gap: 15px; margin-left: 20px; }
+  nav a { color: #97a2b8; text-decoration: none; font-size: 14px; }
+  nav a:hover, nav a.active { color: #fff; }
+  .container { padding: 24px 28px; max-width: 1100px; margin: 0 auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1f2635; }
+  th { color: #97a2b8; font-weight: 500; text-transform: uppercase; font-size: 11px; }
+  tr:hover { background: #131a29; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>&#128737;&#65039; Sentinel NIDS</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/hosts" class="active">Hosts</a>
+      <a href="/sessions">Sessions</a>
+    </nav>
+  </div>
+</header>
+<div class="container">
+  <h2>Host Inventory</h2>
+  <table id="hostsTable">
+    <thead>
+      <tr><th>IP</th><th>MAC</th><th>Hostname</th><th>OS Guess</th><th>Open Ports</th><th>Services</th><th>First Seen</th><th>Packets</th></tr>
+    </thead>
+    <tbody id="hostsBody">
+      <!-- Populated via JS -->
+    </tbody>
+  </table>
+</div>
+<script>
+  fetch('/api/hosts')
+    .then(r => r.json())
+    .then(hosts => {
+      const tbody = document.getElementById('hostsBody');
+      hosts.forEach(h => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${h.ip}</td>
+          <td>${h.mac || '-'}</td>
+          <td>${h.hostname || '-'}</td>
+          <td>${h.os_guess || '-'}</td>
+          <td>${(h.open_ports || []).join(', ')}</td>
+          <td>${Object.entries(h.services || {}).map(([p,s]) => p+'/'+s).join(', ')}</td>
+          <td>${new Date((h.first_seen || 0) * 1000).toLocaleString()}</td>
+          <td>${h.packet_count || 0}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    });
+</script>
+</body>
+</html>

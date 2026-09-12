@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Sentinel NIDS Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -15,29 +17,31 @@
     padding: 20px 28px; border-bottom: 1px solid #1f2635;
     display: flex; align-items: center; justify-content: space-between;
   }
-  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; display: inline-block;}
+  nav { display: inline-flex; gap: 15px; margin-left: 20px; }
+  nav a { color: #97a2b8; text-decoration: none; font-size: 14px; }
+  nav a:hover, nav a.active { color: #fff; }
   header .badge {
     font-size: 12px; color: #8fe3a3; background: #123322; padding: 4px 10px;
     border-radius: 999px; border: 1px solid #1f5c37;
   }
   .container { padding: 24px 28px; max-width: 1100px; margin: 0 auto; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
-  .card {
-    background: #151b28; border: 1px solid #232b3d; border-radius: 10px;
-    padding: 16px;
-  }
+  .card { background: #151b28; border: 1px solid #232b3d; border-radius: 10px; padding: 16px; }
   .card .label { font-size: 12px; color: #97a2b8; text-transform: uppercase; letter-spacing: 0.06em; }
   .card .value { font-size: 26px; font-weight: 600; margin-top: 6px; }
+  
+  .charts { display: flex; gap: 20px; margin-bottom: 24px; }
+  .chart-container { background: #151b28; border: 1px solid #232b3d; border-radius: 10px; padding: 16px; flex: 1; height: 300px; }
+  
   .filters { display: flex; gap: 10px; margin-bottom: 16px; }
-  select {
-    background: #151b28; color: #e6e9ef; border: 1px solid #232b3d;
-    padding: 8px 10px; border-radius: 6px;
-  }
+  select { background: #151b28; color: #e6e9ef; border: 1px solid #232b3d; padding: 8px 10px; border-radius: 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1f2635; }
-  th { color: #97a2b8; font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+  th { color: #97a2b8; font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; cursor: pointer; }
   tr:hover { background: #131a29; }
   .sev { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .sev-critical { background: #4a1010; color: #ff6b6b; border: 1px solid #7a1f1f; }
   .sev-high { background: #3a1620; color: #ff8fa3; border: 1px solid #632233; }
   .sev-medium { background: #3a2c12; color: #ffcf7a; border: 1px solid #634822; }
   .sev-low { background: #12303a; color: #7ad4ff; border: 1px solid #224b63; }
@@ -48,16 +52,32 @@
 </head>
 <body>
 <header>
-  <h1>&#128737;&#65039; Sentinel NIDS</h1>
-  <span class="badge">local &middot; 127.0.0.1</span>
+  <div>
+    <h1>&#128737;&#65039; Sentinel NIDS</h1>
+    <nav>
+      <a href="/" class="active">Dashboard</a>
+      <a href="/hosts">Hosts</a>
+      <a href="/sessions">Sessions</a>
+    </nav>
+  </div>
+  <span class="badge" id="rt-badge">Real-time Connected</span>
 </header>
 <div class="container">
   <div class="cards">
-    <div class="card"><div class="label">Total Alerts</div><div class="value">{{ summary.total_alerts }}</div></div>
-    <div class="card"><div class="label">New Alerts</div><div class="value">{{ summary.new_alerts }}</div></div>
+    <div class="card"><div class="label">Real-time Alerts</div><div class="value" id="rt-alerts">{{ summary.total_alerts }}</div></div>
     <div class="card"><div class="label">High Severity</div><div class="value">{{ summary.by_severity.get('high', 0) }}</div></div>
-    <div class="card"><div class="label">Medium Severity</div><div class="value">{{ summary.by_severity.get('medium', 0) }}</div></div>
-    <div class="card"><div class="label">Low Severity</div><div class="value">{{ summary.by_severity.get('low', 0) }}</div></div>
+    <div class="card"><div class="label">Hosts Discovered</div><div class="value" id="host-count">--</div></div>
+    <div class="card"><div class="label">Active Sessions</div><div class="value" id="session-count">--</div></div>
+    <div class="card"><div class="label">Credentials Found</div><div class="value" id="cred-count">--</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-container">
+      <canvas id="trafficChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="typeChart"></canvas>
+    </div>
   </div>
 
   <form class="filters" method="get">
@@ -72,17 +92,14 @@
       <option value="new" {{ 'selected' if status_filter == 'new' }}>New</option>
       <option value="investigating" {{ 'selected' if status_filter == 'investigating' }}>Investigating</option>
       <option value="resolved" {{ 'selected' if status_filter == 'resolved' }}>Resolved</option>
-      <option value="false_positive" {{ 'selected' if status_filter == 'false_positive' }}>False positive</option>
-      <option value="ignored" {{ 'selected' if status_filter == 'ignored' }}>Ignored</option>
     </select>
   </form>
 
-  {% if alerts %}
-  <table>
+  <table id="alertsTable">
     <thead>
-      <tr><th>Time</th><th>Type</th><th>Severity</th><th>Confidence</th><th>Source</th><th>Destination</th><th>Status</th></tr>
+      <tr><th>Time</th><th>Type</th><th>Severity</th><th>Confidence</th><th>Source</th><th>Destination</th><th>Status</th><th>Actions</th></tr>
     </thead>
-    <tbody>
+    <tbody id="alertsBody">
       {% for a in alerts %}
       <tr>
         <td>{{ a.timestamp | round(0) }}</td>
@@ -92,14 +109,67 @@
         <td>{{ a.src_ip or '-' }}{% if a.src_port %}:{{ a.src_port }}{% endif %}</td>
         <td>{{ a.dst_ip or '-' }}{% if a.dst_port %}:{{ a.dst_port }}{% endif %}</td>
         <td class="status">{{ a.status }}</td>
+        <td><a href="/alert/{{ a.id }}" style="color: #7ad4ff; text-decoration: none;">View</a></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-  <div class="empty">No alerts match this filter. Zero alerts is a healthy result when traffic looks normal.</div>
+  {% if not alerts %}
+  <div class="empty">No alerts match this filter.</div>
   {% endif %}
 </div>
 <footer>Sentinel NIDS &middot; passive, observe-only &middot; authorized environments only</footer>
+
+<script>
+  // Socket.io connection
+  const socket = io();
+  let rtAlertCount = parseInt(document.getElementById('rt-alerts').innerText) || 0;
+  
+  socket.on('connect', () => {
+    document.getElementById('rt-badge').innerText = 'Connected';
+    document.getElementById('rt-badge').style.color = '#8fe3a3';
+  });
+  
+  socket.on('disconnect', () => {
+    document.getElementById('rt-badge').innerText = 'Disconnected';
+    document.getElementById('rt-badge').style.color = '#ff8fa3';
+  });
+  
+  socket.on('new_alert', (alert) => {
+    rtAlertCount++;
+    document.getElementById('rt-alerts').innerText = rtAlertCount;
+    // Auto-refresh the alerts table logic can be added here
+    // or just prepend row to tbody
+  });
+
+  // Placeholder Chart.js
+  const ctx = document.getElementById('trafficChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['10m', '8m', '6m', '4m', '2m', 'now'],
+      datasets: [{ label: 'Traffic (pkts)', data: [12, 19, 3, 5, 2, 3], borderColor: '#7ad4ff', tension: 0.1 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  const ctxType = document.getElementById('typeChart').getContext('2d');
+  new Chart(ctxType, {
+    type: 'doughnut',
+    data: {
+      labels: ['Port Scan', 'SQLi', 'Brute Force'],
+      datasets: [{ data: [10, 5, 2], backgroundColor: ['#ff8fa3', '#ffcf7a', '#7ad4ff'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e6e9ef' } } } }
+  });
+  
+  // Fetch dashboard stats
+  fetch('/api/dashboard')
+    .then(r => r.json())
+    .then(data => {
+      // Could populate these dynamically if data provides them
+      // document.getElementById('host-count').innerText = data.summary.hosts || '--';
+    });
+</script>
 </body>
 </html>

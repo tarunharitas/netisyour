@@ -27,43 +27,44 @@ class PipelineStats:
     packets_processed: int = 0
     processing_errors: int = 0
     alerts_generated: int = 0
+    dropped_packets: int = 0
 
 
 class Pipeline:
-    """Owns the bounded queue, worker threads, periodic stats windows, and
+    """Owns the bounded queue, worker thread, writer thread, periodic stats windows, and
     graceful shutdown for a capture or PCAP-analysis run.
     """
 
-    def __init__(self, config: dict, db: Database):
+    def __init__(self, config: dict, db: Database, on_alert: Optional[Callable] = None):
         self.config = config
         self.db = db
         self.engine = DetectionEngine(config)
+        self.on_alert = on_alert
 
         capture_cfg = config.get("capture", {})
-        self.queue_size = capture_cfg.get("queue_size", 10000)
-        self.num_workers = capture_cfg.get("workers", 2)
+        self.queue_size = capture_cfg.get("queue_size", 20000)
         self.stats_interval_seconds = capture_cfg.get("stats_interval_seconds", 10)
 
         self._queue: "queue.Queue" = queue.Queue(maxsize=self.queue_size)
+        self._alert_queue: "queue.Queue" = queue.Queue()
         self._stop_event = threading.Event()
-        self._workers = []
-        self._lock = threading.Lock()
-        self._engine_lock = threading.Lock()
-        self._stop_lock = threading.Lock()
-        self._stopped = False
+        self._worker_thread: Optional[threading.Thread] = None
+        self._writer_thread: Optional[threading.Thread] = None
+        
         self.stats = PipelineStats()
 
         self._window_start = time.time()
         self._window_packet_count = 0
         self._window_byte_count = 0
+        self._lock = threading.Lock()
 
     # -- Public API ---------------------------------------------------------
 
     def start_workers(self) -> None:
-        for i in range(self.num_workers):
-            t = threading.Thread(target=self._worker_loop, name=f"nids-worker-{i}", daemon=True)
-            t.start()
-            self._workers.append(t)
+        self._worker_thread = threading.Thread(target=self._worker_loop, name="nids-worker", daemon=True)
+        self._writer_thread = threading.Thread(target=self._writer_loop, name="nids-writer", daemon=True)
+        self._worker_thread.start()
+        self._writer_thread.start()
 
     def submit(self, raw_packet) -> None:
         """Called by the capture source (live sniffer or PCAP reader)."""
@@ -71,17 +72,20 @@ class Pipeline:
         try:
             self._queue.put(raw_packet, timeout=1)
         except queue.Full:
+            self.stats.dropped_packets += 1
             logger.warning("Packet queue full; dropping packet")
 
     def stop(self, timeout: float = 5.0) -> None:
-        with self._stop_lock:
-            if self._stopped:
-                return
-            self._stop_event.set()
-            for t in self._workers:
-                t.join(timeout=timeout)
-            self._flush_window()
-            self._stopped = True
+        if self._stop_event.is_set():
+            return
+        self._stop_event.set()
+        
+        if self._worker_thread:
+            self._worker_thread.join(timeout=timeout)
+        if self._writer_thread:
+            self._writer_thread.join(timeout=timeout)
+            
+        self._flush_window()
 
     # -- Internals ------------------------------------------------------
 
@@ -99,6 +103,23 @@ class Pipeline:
             finally:
                 self._queue.task_done()
 
+    def _writer_loop(self) -> None:
+        batch = []
+        while not self._stop_event.is_set() or not self._alert_queue.empty():
+            try:
+                alert = self._alert_queue.get(timeout=1.0)
+                batch.append(alert)
+                self._alert_queue.task_done()
+            except queue.Empty:
+                pass
+                
+            if len(batch) >= 100 or (batch and self._alert_queue.empty()):
+                try:
+                    self.db.insert_alerts_batch(batch)
+                except Exception:
+                    logger.exception("Failed to insert alert batch")
+                batch = []
+
     def _handle_packet(self, raw_packet) -> None:
         record = parse_packet(raw_packet)
 
@@ -108,12 +129,16 @@ class Pipeline:
             if (record.timestamp - self._window_start) >= self.stats_interval_seconds:
                 self._flush_window(now=record.timestamp)
 
-        with self._engine_lock:
-            alerts = self.engine.process(record)
+        alerts = self.engine.process(record)
         for alert in alerts:
-            self.db.insert_alert(alert)
+            self._alert_queue.put(alert)
             self.stats.alerts_generated += 1
             logger.info("ALERT %s: %s", alert.alert_type, alert.description)
+            if self.on_alert:
+                try:
+                    self.on_alert(alert)
+                except Exception:
+                    logger.exception("Error in on_alert callback")
 
         self.stats.packets_processed += 1
 
@@ -148,6 +173,8 @@ def run_live_capture(pipeline: Pipeline, interface: str, count: int = 0,
 
     try:
         sniff(iface=interface, prn=_on_packet, store=False, count=count, filter=bpf_filter)
+    except KeyboardInterrupt:
+        pass
     finally:
         pipeline.stop()
 
@@ -163,5 +190,7 @@ def run_pcap_analysis(pipeline: Pipeline, pcap_path: str) -> None:
         with PcapReader(pcap_path) as reader:
             for pkt in reader:
                 pipeline.submit(pkt)
+    except KeyboardInterrupt:
+        pass
     finally:
         pipeline.stop()

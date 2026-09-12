@@ -1,30 +1,92 @@
-# Environments
+# Environments & Virtual Envs
 .venv/
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python cache & build artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 *.egg-info/
+.installed.cfg
+*.egg
 build/
 dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
 
-# Sentinel NIDS runtime data - never publish these
-nids.db
+# Testing & Linters
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Sentinel NIDS runtime data & databases - NEVER PUBLISH
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.db3
+nids.db*
+
+# Packet captures (May contain real network traffic, MACs, cleartext passwords)
 *.pcap
 *.pcapng
-alerts.json
-alerts.csv
+*.cap
+*.dmp
 
-# Secrets
+# Generated reports & exports (May contain real network topology & device names)
+/report.html
+/report.md
+/report.json
+*.report.html
+/alerts.json
+/alerts.csv
+/hosts_export.*
+
+# Secrets, certificates, and tokens
 *.env
+*.env.*
 .env
+.env.*
 *.key
 *.pem
+*.crt
+*.csr
+*.p12
+*.pfx
 credentials*
 tokens*
+secrets*
+*.mmdb
 
-# OS / editor
+# Temporary & patch scripts
+patch_*.py
+scratch/
+tmp/
+temp/
+
+# OS / Editor artifacts
 .DS_Store
 Thumbs.db
+desktop.ini
+ehthumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo
+*~

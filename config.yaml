@@ -1,17 +1,17 @@
-# Sentinel NIDS configuration
-# Tune detector thresholds here without touching Python source code.
+# Sentinel NIDS v2.0 configuration
+# Tune detector thresholds and feature toggles without touching Python source.
 
 capture:
   interface: "WiFi"          # Overridden by --interface on the CLI
   bpf_filter: null           # e.g. "ip" to restrict capture, or leave null
-  queue_size: 10000          # Max packets waiting for worker processing
-  workers: 2                 # Number of analysis worker threads
+  queue_size: 20000          # Max packets waiting for processing
   stats_interval_seconds: 10 # Length of each traffic-statistics window
 
 database:
   path: "nids.db"
   retention_days: 30
 
+# ── Detection rules ───────────────────────────────────────────────────
 arp:
   enabled: true
   trusted_mappings: {}       # e.g. { "192.168.1.1": "AA:BB:CC:DD:EE:FF" }
@@ -51,6 +51,75 @@ anomaly:
   persistence_windows: 2
   cooldown_seconds: 60
 
+# ── Signature-based detection (Phase 3) ───────────────────────────────
+signatures:
+  enabled: true
+  nmap_detection: true
+  mitm_detection: true
+  brute_force:
+    enabled: true
+    window_seconds: 60
+    attempt_threshold: 10
+    cooldown_seconds: 120
+  c2_beaconing:
+    enabled: true
+    min_connections: 10
+    interval_tolerance: 0.15   # jitter tolerance (15%)
+    window_seconds: 300
+    cooldown_seconds: 300
+
+# ── Cleartext credential detection (Phase 3) ──────────────────────────
+credentials:
+  enabled: true
+  protocols: ["http", "ftp", "telnet", "smtp", "pop3", "imap", "snmp"]
+  log_usernames: true          # log the username (never logs passwords)
+  cooldown_seconds: 60
+
+# ── Passive reconnaissance (Phase 2) ──────────────────────────────────
+reconnaissance:
+  enabled: true
+  os_fingerprinting: true      # TTL-based OS guessing
+  service_discovery: true      # map open ports from SYN-ACKs
+  banner_grabbing: true        # extract cleartext service banners
+  dhcp_tracking: true          # extract hostnames from DHCP
+
+# ── Session tracking (Phase 2) ────────────────────────────────────────
+sessions:
+  enabled: true
+  max_sessions: 50000          # max concurrent sessions tracked
+  timeout_seconds: 300         # idle session timeout
+  track_http_metadata: true    # extract Host, User-Agent, Server
+  track_tls_metadata: true     # extract SNI, JA3 fingerprint
+
+# ── Threat intelligence enrichment (Phase 3) ──────────────────────────
+enrichment:
+  geoip:
+    enabled: false             # requires MaxMind GeoLite2 DB
+    database_path: ""          # path to GeoLite2-City.mmdb
+  threat_feeds:
+    enabled: false
+    feeds: []                  # URLs to threat intelligence feeds
+
+# ── Notifications (Phase 4) ──────────────────────────────────────────
+notifications:
+  enabled: false
+  min_severity: "high"         # only notify for this severity and above
+  webhook:
+    enabled: false
+    url: ""                    # Slack/Discord/generic webhook URL
+  desktop:
+    enabled: false             # terminal bell on high-severity alerts
+
+# ── Dashboard ────────────────────────────────────────────────────────
 dashboard:
   host: "127.0.0.1"
   port: 5000
+  # WARNING: Binding to 0.0.0.0 exposes the dashboard to the network.
+  # The dashboard has no authentication -- use only on trusted networks.
+
+# ── Report generation (Phase 4) ──────────────────────────────────────
+reporting:
+  default_format: "html"       # html, markdown, json
+  include_mitre: true          # map findings to MITRE ATT&CK
+  analyst_name: ""
+  organization: ""

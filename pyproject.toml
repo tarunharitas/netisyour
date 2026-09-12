@@ -4,24 +4,34 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sentinel-nids"
-version = "1.0.0"
-description = "A lightweight, passive network intrusion & anomaly detection system"
+version = "2.0.0"
+description = "A professional-grade passive network intrusion detection & ethical hacking toolkit"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Tarun Sharma" }]
-keywords = ["nids", "network-security", "intrusion-detection", "scapy", "cybersecurity"]
+keywords = ["nids", "network-security", "intrusion-detection", "scapy", "cybersecurity", "ethical-hacking", "pentest"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Security",
-    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
 ]
 dependencies = [
     "scapy>=2.5.0",
     "Flask>=2.3.0",
+    "flask-socketio>=5.3.0",
     "PyYAML>=6.0",
+    "tldextract>=5.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+full = [
+    "geoip2>=4.0.0",
+    "cryptography>=41.0.0",
 ]
 
 [project.scripts]
@@ -31,4 +41,4 @@ sentinel-nids = "nids.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-nids = ["templates/*.html", "static/*"]
+nids = ["templates/*.html", "static/**/*"]

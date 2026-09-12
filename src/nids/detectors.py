@@ -13,25 +13,23 @@ from __future__ import annotations
 
 import math
 import time
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from typing import Deque, Dict, List, Optional, Tuple
+
+import tldextract
 
 from .models import Alert, PacketRecord
 
+
+from collections import Counter
 
 def _entropy(s: str) -> float:
     """Shannon entropy of a string, in bits per character."""
     if not s:
         return 0.0
-    freq: Dict[str, int] = defaultdict(int)
-    for ch in s:
-        freq[ch] += 1
+    counts = Counter(s)
     n = len(s)
-    ent = 0.0
-    for count in freq.values():
-        p = count / n
-        ent -= p * math.log2(p)
-    return ent
+    return -sum((c / n) * math.log2(c / n) for c in counts.values())
 
 
 class _CooldownMixin:
@@ -85,6 +83,8 @@ class ArpDetector(_CooldownMixin):
             self.known[ip] = mac
             return Alert(
                 alert_type="ARP_MAPPING_CHANGED",
+            mitre_tactic="Credential Access",
+            mitre_technique="T1557 Adversary-in-the-Middle",
                 severity="medium",
                 confidence=0.6,
                 rule_name="arp_mapping_change",
@@ -158,6 +158,8 @@ class SynFloodDetector(_CooldownMixin):
         }
         return Alert(
             alert_type="SYN_FLOOD_INDICATOR",
+            mitre_tactic="Impact",
+            mitre_technique="T1498 Network Denial of Service",
             severity="high",
             confidence=0.7,
             rule_name="syn_flood_indicator",
@@ -215,6 +217,8 @@ class PortScanDetector(_CooldownMixin):
                 if self._ready(key, now):
                     alerts.append(Alert(
                         alert_type="VERTICAL_PORT_SCAN_INDICATOR",
+            mitre_tactic="Reconnaissance",
+            mitre_technique="T1046 Network Service Discovery",
                         severity="medium",
                         confidence=0.65,
                         rule_name="vertical_port_scan",
@@ -234,6 +238,8 @@ class PortScanDetector(_CooldownMixin):
                 if self._ready(key, now):
                     alerts.append(Alert(
                         alert_type="HORIZONTAL_PORT_SCAN_INDICATOR",
+            mitre_tactic="Reconnaissance",
+            mitre_technique="T1046 Network Service Discovery",
                         severity="medium",
                         confidence=0.65,
                         rule_name="horizontal_port_scan",
@@ -279,12 +285,14 @@ class DnsTunnelingDetector(_CooldownMixin):
         # parent_domain -> deque[(timestamp, full_query, qtype)]
         self._events: Dict[str, Deque[Tuple[float, str, str]]] = defaultdict(deque)
 
+    import tldextract
+
     @staticmethod
     def _parent_domain(query: str) -> str:
-        parts = query.strip(".").split(".")
-        if len(parts) <= 2:
-            return query.lower()
-        return ".".join(parts[-2:]).lower()
+        ext = tldextract.extract(query)
+        if ext.domain and ext.suffix:
+            return f"{ext.domain}.{ext.suffix}".lower()
+        return query.lower().rstrip('.')
 
     def _is_allowlisted(self, parent: str) -> bool:
         return parent in self.allowlist
@@ -352,6 +360,8 @@ class DnsTunnelingDetector(_CooldownMixin):
         }
         return Alert(
             alert_type="DNS_TUNNELING_INDICATOR",
+            mitre_tactic="Exfiltration",
+            mitre_technique="T1048 Exfiltration Over Alternative Protocol",
             severity="medium",
             confidence=min(0.5 + 0.05 * score, 0.95),
             rule_name="dns_tunneling_indicator",
@@ -425,6 +435,8 @@ class StatisticalAnomalyDetector(_CooldownMixin):
         }
         return Alert(
             alert_type="TRAFFIC_RATE_ANOMALY",
+            mitre_tactic="Impact",
+            mitre_technique="T1498 Network Denial of Service",
             severity="low" if abs(z) < self.z_score_threshold * 1.5 else "medium",
             confidence=min(0.4 + 0.1 * abs(z), 0.9),
             rule_name="statistical_traffic_anomaly",
@@ -504,26 +516,43 @@ class DetectionEngine:
             persistence_windows=anomaly_cfg.get("persistence_windows", 2),
             cooldown_seconds=anomaly_cfg.get("cooldown_seconds", 60),
         )
+        
+        self.dedup_window = config.get("dedup_window_seconds", 60.0)
+        from typing import Dict, Tuple, Optional
+        from .models import Alert
+        self._recent_alerts: Dict[Tuple[str, Optional[str], Optional[str]], Tuple[float, int, Alert]] = {}
 
     def process(self, pkt: PacketRecord) -> List[Alert]:
-        alerts: List[Alert] = []
+        raw_alerts: List[Alert] = []
 
         a = self.arp.process(pkt)
-        if a:
-            alerts.append(a)
+        if a: raw_alerts.append(a)
 
         a = self.syn_flood.process(pkt)
-        if a:
-            alerts.append(a)
+        if a: raw_alerts.append(a)
 
-        alerts.extend(self.port_scan.process(pkt))
+        raw_alerts.extend(self.port_scan.process(pkt))
 
         a = self.dns_tunneling.process(pkt)
-        if a:
-            alerts.append(a)
+        if a: raw_alerts.append(a)
 
         a = self.anomaly.process(pkt)
-        if a:
+        if a: raw_alerts.append(a)
+
+        now = pkt.timestamp
+        alerts: List[Alert] = []
+        for a in raw_alerts:
+            key = (a.alert_type, a.src_ip, a.dst_ip)
+            if key in self._recent_alerts:
+                last_time, count, existing_alert = self._recent_alerts[key]
+                if now - last_time <= self.dedup_window:
+                    self._recent_alerts[key] = (now, count + 1, existing_alert)
+                    existing_alert.count = count + 1
+                    existing_alert.timestamp = now
+                    continue
+
+            a.count = 1
+            self._recent_alerts[key] = (now, 1, a)
             alerts.append(a)
 
         return alerts

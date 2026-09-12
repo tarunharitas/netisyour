@@ -16,12 +16,13 @@ class TestPipeline(unittest.TestCase):
         self.db.init_db()
 
     def tearDown(self):
+        self.db.close()
         if os.path.exists(self.path):
             os.remove(self.path)
 
     def test_stop_is_idempotent(self):
         pipeline = Pipeline(
-            {"capture": {"workers": 0, "stats_interval_seconds": 10}},
+            {"capture": {"stats_interval_seconds": 10}},
             self.db,
         )
         pipeline._window_packet_count = 1
@@ -40,9 +41,11 @@ class TestDashboard(unittest.TestCase):
         os.remove(self.path)
         self.db = Database(self.path)
         self.db.init_db()
-        self.client = create_app(self.db).test_client()
+        app, _socketio = create_app(self.db)
+        self.client = app.test_client()
 
     def tearDown(self):
+        self.db.close()
         if os.path.exists(self.path):
             os.remove(self.path)
 

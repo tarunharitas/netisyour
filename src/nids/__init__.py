@@ -1,7 +1,13 @@
-"""Sentinel NIDS - a lightweight, passive network intrusion & anomaly detection system.
+"""Sentinel NIDS — passive network intrusion detection & ethical hacking toolkit.
 
-Defensive and educational use only. Monitor only devices and networks that you
-own or are explicitly authorized to inspect.
+v2.0 adds passive reconnaissance, session tracking, signature-based
+detection, credential sniffing, threat enrichment, and a real-time dashboard.
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
+
+from .models import PacketRecord, Alert, HostRecord, SessionRecord, CredentialRecord
+from .parser import parse_packet
+from .detectors import DetectionEngine
+from .database import Database
+from .pipeline import Pipeline

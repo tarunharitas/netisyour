@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sentinel NIDS Penetration Test Report</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 1000px; margin: 0 auto; padding: 40px; }
+  h1 { border-bottom: 2px solid #2c3e50; padding-bottom: 10px; color: #2c3e50; }
+  h2 { border-bottom: 1px solid #eee; margin-top: 30px; color: #34495e; }
+  .executive-summary, .finding { background: #f9f9f9; padding: 20px; border-left: 4px solid #3498db; margin-bottom: 20px; }
+  .finding.high { border-left-color: #e74c3c; }
+  .finding.medium { border-left-color: #f39c12; }
+  .finding.low { border-left-color: #3498db; }
+  .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: white; }
+  .badge.high { background: #e74c3c; }
+  .badge.medium { background: #f39c12; }
+  .badge.low { background: #3498db; }
+  pre { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 5px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+  th { background: #f4f4f4; }
+  @media print {
+    body { padding: 0; }
+    .finding { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <h1>Sentinel NIDS Penetration Test Report</h1>
+  <p><strong>Generated:</strong> {{ timestamp }}<br>
+     <strong>Analyst:</strong> {{ analyst_info }}</p>
+
+  <h2>Executive Summary</h2>
+  <div class="executive-summary">
+    <p>This report details the findings from the Sentinel NIDS automated analysis.</p>
+    <ul>
+      <li><strong>Total Alerts:</strong> {{ summary.total_alerts }}</li>
+      <li><strong>High Severity Alerts:</strong> {{ summary.by_severity.get('high', 0) }}</li>
+      <li><strong>Discovered Hosts:</strong> {{ hosts | length }}</li>
+      <li><strong>Tracked Sessions:</strong> {{ sessions | length }}</li>
+    </ul>
+  </div>
+
+  <h2>Findings</h2>
+  {% for a in alerts %}
+  <div class="finding {{ a.severity }}">
+    <h3>{{ a.alert_type }} <span class="badge {{ a.severity }}">{{ a.severity | upper }}</span></h3>
+    <p><strong>Description:</strong> {{ a.description }}</p>
+    {% if a.mitre_technique %}
+    <p><strong>MITRE ATT&CK:</strong> {{ a.mitre_technique }} ({{ a.mitre_tactic }})</p>
+    {% endif %}
+    <p><strong>Source:</strong> {{ a.src_ip }}:{{ a.src_port }} &rarr; <strong>Destination:</strong> {{ a.dst_ip }}:{{ a.dst_port }}</p>
+    <h4>Evidence</h4>
+    <pre>{{ a.evidence | tojson(indent=2) }}</pre>
+  </div>
+  {% else %}
+  <p>No alerts were generated during this capture.</p>
+  {% endfor %}
+
+  <h2>Host Inventory</h2>
+  <table>
+    <thead>
+      <tr><th>IP</th><th>MAC</th><th>OS Guess</th><th>Open Ports</th></tr>
+    </thead>
+    <tbody>
+      {% for h in hosts %}
+      <tr>
+        <td>{{ h.ip }}</td>
+        <td>{{ h.mac or '-' }}</td>
+        <td>{{ h.os_guess or '-' }}</td>
+        <td>{{ h.open_ports | join(', ') }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">No hosts discovered.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  
+  <h2>Recommendations</h2>
+  <p>Please review the high severity findings and verify the evidence. Implement network segmentation and patch vulnerable systems identified in the host inventory.</p>
+
+</body>
+</html>

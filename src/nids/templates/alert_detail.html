@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Alert Detail - Sentinel NIDS Dashboard</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 0; background: #0f1420; color: #e6e9ef; }
+  header { padding: 20px 28px; border-bottom: 1px solid #1f2635; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; display: inline-block;}
+  nav { display: inline-flex; gap: 15px; margin-left: 20px; }
+  nav a { color: #97a2b8; text-decoration: none; font-size: 14px; }
+  nav a:hover, nav a.active { color: #fff; }
+  .container { padding: 24px 28px; max-width: 800px; margin: 0 auto; }
+  .card { background: #151b28; border: 1px solid #232b3d; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  pre { background: #0f1420; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px; color: #a5b4fc; }
+  .sev-badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; }
+  .sev-high { background: #3a1620; color: #ff8fa3; border: 1px solid #632233; }
+  .sev-medium { background: #3a2c12; color: #ffcf7a; border: 1px solid #634822; }
+  .sev-low { background: #12303a; color: #7ad4ff; border: 1px solid #224b63; }
+  form { display: flex; flex-direction: column; gap: 10px; }
+  select, input, textarea, button { background: #151b28; color: #e6e9ef; border: 1px solid #232b3d; padding: 8px 10px; border-radius: 6px; font-family: inherit; }
+  button { background: #224b63; cursor: pointer; font-weight: bold; }
+  button:hover { background: #306585; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>&#128737;&#65039; Sentinel NIDS</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/hosts">Hosts</a>
+      <a href="/sessions">Sessions</a>
+    </nav>
+  </div>
+</header>
+<div class="container">
+  <div class="card">
+    <h2>Alert #{{ alert.id }}: {{ alert.alert_type }} <span class="sev-badge sev-{{ alert.severity }}">{{ alert.severity | upper }}</span></h2>
+    <p><strong>Description:</strong> {{ alert.description }}</p>
+    <p><strong>Source:</strong> {{ alert.src_ip }}:{{ alert.src_port }}</p>
+    <p><strong>Destination:</strong> {{ alert.dst_ip }}:{{ alert.dst_port }}</p>
+    <p><strong>MITRE Tactic:</strong> {{ alert.mitre_tactic or 'N/A' }}</p>
+    <p><strong>MITRE Technique:</strong> {{ alert.mitre_technique or 'N/A' }}</p>
+    
+    <h3>Evidence</h3>
+    <pre>{{ alert.evidence | tojson(indent=2) }}</pre>
+  </div>
+  
+  <div class="card">
+    <h3>Update Status</h3>
+    <form method="POST" action="/api/alerts/{{ alert.id }}">
+      <label>Status</label>
+      <select name="status">
+        <option value="new" {{ 'selected' if alert.status == 'new' }}>New</option>
+        <option value="investigating" {{ 'selected' if alert.status == 'investigating' }}>Investigating</option>
+        <option value="resolved" {{ 'selected' if alert.status == 'resolved' }}>Resolved</option>
+        <option value="false_positive" {{ 'selected' if alert.status == 'false_positive' }}>False Positive</option>
+        <option value="ignored" {{ 'selected' if alert.status == 'ignored' }}>Ignored</option>
+      </select>
+      <label>Note</label>
+      <textarea name="note" rows="3">{{ alert.note or '' }}</textarea>
+      <button type="submit">Save Updates</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

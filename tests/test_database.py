@@ -16,6 +16,7 @@ class TestDatabase(unittest.TestCase):
         self.db.init_db()
 
     def tearDown(self):
+        self.db.close()
         if os.path.exists(self.path):
             os.remove(self.path)
 
