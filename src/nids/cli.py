@@ -89,6 +89,11 @@ def cmd_analyze(args, config: dict) -> None:
     console.print(f"Packets: {s.packets_processed} | Alerts: {s.alerts_generated} | Errors: {s.processing_errors}")
 
 
+def cmd_app(args, config: dict) -> None:
+    from .app import launch_desktop_app
+    launch_desktop_app(config_path=args.config)
+
+
 def cmd_dashboard(args, config: dict) -> None:
     from .dashboard import create_app
     db = _db_from_config(config)
@@ -254,6 +259,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_analyze.set_defaults(func=cmd_analyze)
 
     sub.add_parser("dashboard", help="Run the local Flask dashboard").set_defaults(func=cmd_dashboard)
+    sub.add_parser("app", help="Launch 1-click standalone desktop application window").set_defaults(func=cmd_app)
 
     p_alerts = sub.add_parser("alerts", help="List stored alerts")
     p_alerts.add_argument("--limit", type=int, default=50)

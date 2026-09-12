@@ -60,7 +60,11 @@
       <a href="/sessions">Sessions</a>
     </nav>
   </div>
-  <span class="badge" id="rt-badge">Real-time Connected</span>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <a href="/api/report/download" target="_blank" style="font-size: 12px; color: #7ad4ff; background: #12303a; padding: 6px 12px; border-radius: 6px; border: 1px solid #224b63; text-decoration: none; font-weight: 500;">📄 Export Report</a>
+    <button onclick="clearDatabase()" style="font-size: 12px; color: #ff8fa3; background: #3a1620; padding: 6px 12px; border-radius: 6px; border: 1px solid #632233; cursor: pointer; font-weight: 500;">🗑️ Reset Data</button>
+    <span class="badge" id="rt-badge">🟢 Live Monitoring Active</span>
+  </div>
 </header>
 <div class="container">
   <div class="cards">
@@ -163,13 +167,21 @@
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e6e9ef' } } } }
   });
   
-  // Fetch dashboard stats
-  fetch('/api/dashboard')
-    .then(r => r.json())
-    .then(data => {
-      // Could populate these dynamically if data provides them
-      // document.getElementById('host-count').innerText = data.summary.hosts || '--';
-    });
+  // Fetch dashboard stats & counts
+  fetch('/api/hosts').then(r => r.json()).then(data => {
+    if (Array.isArray(data)) document.getElementById('host-count').innerText = data.length;
+  });
+  fetch('/api/sessions').then(r => r.json()).then(data => {
+    if (Array.isArray(data)) document.getElementById('session-count').innerText = data.length;
+  });
+
+  function clearDatabase() {
+    if (confirm('Are you sure you want to reset and wipe all security logs?')) {
+      fetch('/api/db/clear', { method: 'POST' }).then(() => {
+        window.location.reload();
+      });
+    }
+  }
 </script>
 </body>
 </html>

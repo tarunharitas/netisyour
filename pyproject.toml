@@ -26,6 +26,7 @@ dependencies = [
     "PyYAML>=6.0",
     "tldextract>=5.0.0",
     "rich>=13.0.0",
+    "pywebview>=5.0.0",
 ]
 
 [project.optional-dependencies]
