@@ -121,29 +121,37 @@ python -m unittest discover -s tests -v
 
 ## ⚡ Quick Start Guide
 
-### 1. Initialize the Database
-Creates the SQLite database schema and enables WAL mode:
+### Option A: 🖥️ 1-Click Native Desktop App (Recommended)
+No terminal juggling or browser typing required. Automatically finds your active Wi-Fi/Ethernet adapter, starts live capture in the background, and opens a standalone desktop application window:
+
+* **Windows (Fastest):** Simply double-click **`Start-Sentinel.bat`** in the project folder (prompts for Admin elevation and starts everything automatically).
+* **Cross-Platform CLI:**
+  ```bash
+  sentinel-nids app
+  ```
+
+> 💡 **In-App Controls**: The desktop window includes one-click buttons in the top header to **📄 Export Pentest Report** and **🗑️ Reset Database** directly from the UI.
+
+---
+
+### Option B: 💻 Modular Terminal & Web Dashboard Mode
+If you prefer running components separately in your terminal:
+
 ```bash
+# 1. Initialize the SQLite database (enables WAL mode)
 sentinel-nids --config config.yaml init-db
-```
 
-### 2. Launch the Real-Time Dashboard
-Starts the Flask-SocketIO server at `http://127.0.0.1:5000`:
-```bash
+# 2. Start the real-time WebSocket dashboard (open http://127.0.0.1:5000)
 sentinel-nids --config config.yaml dashboard
-```
 
-### 3. Capture Live Traffic (Admin / Sudo required)
-In a separate terminal, start capturing packets on your active interface:
-```bash
+# 3. In another terminal, start live traffic capture
 # Windows:
 sentinel-nids --config config.yaml monitor --interface "Wi-Fi"
-
 # Linux:
 sudo sentinel-nids --config config.yaml monitor --interface "eth0"
 ```
 
-### 4. Or Replay an Offline PCAP
+### Option C: 📂 Replay an Offline PCAP
 Analyze existing captures safely offline:
 ```bash
 sentinel-nids --config config.yaml analyze --pcap samples/traffic.pcap
@@ -161,6 +169,7 @@ Sentinel NIDS v2.0 features a rich terminal interface with formatted tables, pro
 | `monitor` | Captures and analyzes live traffic | `sentinel-nids monitor --interface "Wi-Fi" --count 500` |
 | `analyze` | Replays and evaluates an offline PCAP | `sentinel-nids analyze --pcap capture.pcap` |
 | `dashboard`| Spins up the real-time WebSocket web UI | `sentinel-nids dashboard` |
+| `app` | Launches 1-click standalone desktop application window | `sentinel-nids app` |
 | `hosts` | Lists all discovered hosts, guessed OS, and open ports | `sentinel-nids hosts --limit 50` |
 | `sessions` | Displays active and completed TCP sessions | `sentinel-nids sessions --state ESTABLISHED` |
 | `alerts` | Queries detected security alerts | `sentinel-nids alerts --severity high --status new` |
@@ -237,10 +246,12 @@ notifications:
 
 ```
 netisyour/
+├── Start-Sentinel.bat             # 1-Click Windows native desktop app launcher
 ├── config.yaml                    # Master runtime configuration
 ├── pyproject.toml                 # Package definition and dependencies
 ├── src/
 │   └── nids/
+│       ├── app.py                 # Native desktop app window (pywebview)
 │       ├── cli.py                 # Rich terminal interface
 │       ├── credentials.py         # Cleartext credential sniffer
 │       ├── dashboard.py           # Real-time Flask-SocketIO dashboard
